@@ -1,0 +1,21 @@
+{
+    "copies": 6,
+    "strip_metadata": true,
+    "style": "Light",
+    "output_format": "Оригинальный",
+    "blur_background": false,
+    "selected_filters": [
+        "Нет фильтра"
+    ],
+    "zoom_mode": "dynamic",
+    "zoom_static": 100,
+    "zoom_min": 100,
+    "zoom_max": 102,
+    "speed_mode": "dynamic",
+    "speed_static": 100,
+    "speed_min": 100,
+    "speed_max": 101,
+    "overlay_path": "",
+    "overlay_pos": "Середина-Центр",
+    "mute_audio": false
+}

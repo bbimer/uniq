@@ -1,57 +1,38 @@
-![image](https://github.com/user-attachments/assets/4e3db8a7-be30-40fc-9e60-4c3ff79918b2)
+# Video Uniqueizer
 
-Уникализатор видео для Reels, TikTok, Shorts, Instagram, VK, Telegram и других соцсетей.
+Fast, visually lossless tool for automating video uniqueization for Instagram Reels. Bypasses duplicate-detection algorithms by altering video and audio fingerprints while keeping pristine picture quality intact.
 
-## Возможности
-- Массовая обработка видео и GIF
-- Поддержка drag-and-drop и работы с папками
-- Выбор популярных форматов и размеров под соцсети (Reels, Shorts, Instagram, VK, Telegram, Facebook, Twitter, Snapchat, Pinterest)
-- Фильтры: цвет, контраст, ч/б, сепия, инверсия, размытие, пикселизация и др.
-- Наложение изображений и GIF
-- Очистка метаданных
-- Удаление звука
-- Размытие фона для вертикальных форматов
-- Современный UI с поддержкой тем (Light, Dark, Lolz)
-- Логирование в файл и консоль
+## Key Features
+- **Micro-Zoom (100–104%):** Shifts the pixel grid without blurring or cropping out important content.
+- **Micro-Speed (98–102%):** Alters video duration and audio waveform while preserving original audio pitch.
+- **Micro-Color Grading:** Subtle brightness, contrast, and saturation shifts (±1.5%) that keep skin tones natural.
+- **Metadata Stripping:** Wipes all camera EXIF data, creation timestamps, and encoding tags (`-map_metadata -1`).
+- **Blurred Background:** Automatically pads horizontal videos into 9:16 vertical format (1080x1920).
+- **GPU Accelerated:** Uses hardware NVIDIA NVENC (`h264_nvenc`) — renders a 30s 60fps video in ~3-4 seconds. Falls back to CPU (`libx264`) if no NVIDIA GPU is detected.
 
-## Запуск
-1. Установите Python 3.10+
-2. Установите зависимости:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Скачайте [FFmpeg](https://ffmpeg.org/download.html) и поместите бинарники в `ffmpeg/bin/`
-4. Запустите приложение:
-   ```bash
-   python main.py
-   ```
+## Modes
 
-## Структура проекта
-- `main.py` — точка входа, логирование, запуск UI
-- `ui/main_window.py` — основное окно, логика интерфейса
-- `utils/constants.py` — константы, форматы, фильтры
-- `workers/worker.py` — обработка видео в отдельном потоке
-- `resources/` — стили, иконки, темы
-- `ffmpeg/` — бинарники ffmpeg
+### 1. Multi-Account Batch Mode (`RUN_BATCH_X12.bat`)
+Generates 72 distinct unique videos and organizes them directly into separate folders for 12 Instagram Reels accounts (6 unique videos per account):
+```text
+output/
+  ├── account_01/  ->  6 unique videos
+  ├── account_02/  ->  6 unique videos
+  ...
+  └── account_12/  ->  6 unique videos
+```
+Every single file across all 12 accounts receives its own random seed and parameters, ensuring zero duplicate collision between accounts.
 
-## Форматы соцсетей
-- Reels/TikTok: 1080x1920
-- YouTube Shorts: 1080x1920
-- Instagram Story: 1080x1920
-- Instagram Post: 1080x1080
-- Instagram Landscape: 1920x1080
-- Instagram Portrait: 1080x1350
-- VK Clip: 1080x1920
-- Telegram Story: 1080x1920
-- Telegram Post: 1280x720
-- YouTube: 1920x1080
-- Facebook Story: 1080x1920
-- Facebook Post: 1200x630
-- Twitter Post: 1600x900
-- Twitter Portrait: 1080x1350
-- Snapchat: 1080x1920
-- Pinterest: 1000x1500
+### 2. GUI Mode (`scripts/run_gui.bat`)
+A clean PyQt5 interface for custom one-off processing with manual controls over filters, zoom ranges, speed ranges, and copy counts.
 
-**Автор:** [0xd5f](https://github.com/0xd5f)
----
-BTC: `bc1q20yn32a9ykkgcf7r8g23n7gwqzzfj9u932w4ww`
+## Quick Start
+1. Drop your source video(s) into `input/`.
+2. Run `RUN_BATCH_X12.bat` (for batch rendering) or `scripts/run_gui.bat` (for GUI).
+3. Grab the generated videos from `output/`.
+
+## Requirements
+- Windows 10/11
+- Python 3.10+ (`pip install -r requirements.txt`)
+- FFmpeg installed and available in system PATH
+- (Optional) NVIDIA GPU for fast NVENC hardware encoding

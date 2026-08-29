@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.log
+.pytest_cache/
+
+# Media directories
+input/*
+!input/.gitkeep
+output/*
+!output/.gitkeep

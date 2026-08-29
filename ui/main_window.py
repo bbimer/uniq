@@ -139,6 +139,18 @@ class MainProcessingWidget(QWidget):
         sm_layout.addWidget(self.style_label)
         sm_layout.addWidget(self.style_combo)
         cl.addLayout(sm_layout)
+
+        copies_layout = QHBoxLayout()
+        self.copies_label = QLabel("Количество копий:")
+        self.copies_spin = QSpinBox()
+        self.copies_spin.setRange(1, 100)
+        self.copies_spin.setValue(1)
+        self.copies_spin.setFixedWidth(60)
+        copies_layout.addWidget(self.copies_label)
+        copies_layout.addWidget(self.copies_spin)
+        copies_layout.addStretch()
+        cl.addLayout(copies_layout)
+
         self.right_panel.addWidget(common)
 
         fmt_group = QGroupBox("Формат вывода")
@@ -317,6 +329,98 @@ class MainProcessingWidget(QWidget):
         self.on_zoom_mode_changed()
         self.on_speed_mode_changed()
         self.video_list_widget.files_dropped.connect(self.refresh_video_list_display)
+        self.load_config()
+
+    def load_config(self):
+        import json
+        config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "config.json")
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                
+                if "copies" in cfg:
+                    self.copies_spin.setValue(cfg["copies"])
+                if "strip_metadata" in cfg:
+                    self.strip_meta_checkbox.setChecked(cfg["strip_metadata"])
+                if "style" in cfg:
+                    self.style_combo.setCurrentText(cfg["style"])
+                if "output_format" in cfg:
+                    self.output_format_combo.setCurrentText(cfg["output_format"])
+                if "blur_background" in cfg:
+                    self.blur_background_checkbox.setChecked(cfg["blur_background"])
+                
+                if "selected_filters" in cfg:
+                    self.filter_list.clearSelection()
+                    for i in range(self.filter_list.count()):
+                        item = self.filter_list.item(i)
+                        if item.text() in cfg["selected_filters"]:
+                            item.setSelected(True)
+                
+                if "zoom_mode" in cfg:
+                    if cfg["zoom_mode"] == "dynamic":
+                        self.zoom_dynamic_radio.setChecked(True)
+                    else:
+                        self.zoom_static_radio.setChecked(True)
+                    self.on_zoom_mode_changed()
+                
+                if "zoom_static" in cfg:
+                    self.zoom_static_spin.setValue(cfg["zoom_static"])
+                if "zoom_min" in cfg:
+                    self.zoom_min_spin.setValue(cfg["zoom_min"])
+                if "zoom_max" in cfg:
+                    self.zoom_max_spin.setValue(cfg["zoom_max"])
+                
+                if "speed_mode" in cfg:
+                    if cfg["speed_mode"] == "dynamic":
+                        self.speed_dynamic_radio.setChecked(True)
+                    else:
+                        self.speed_static_radio.setChecked(True)
+                    self.on_speed_mode_changed()
+                
+                if "speed_static" in cfg:
+                    self.speed_static_spin.setValue(cfg["speed_static"])
+                if "speed_min" in cfg:
+                    self.speed_min_spin.setValue(cfg["speed_min"])
+                if "speed_max" in cfg:
+                    self.speed_max_spin.setValue(cfg["speed_max"])
+                
+                if "overlay_path" in cfg:
+                    self.overlay_path.setText(cfg["overlay_path"])
+                if "overlay_pos" in cfg:
+                    self.overlay_pos_combo.setCurrentText(cfg["overlay_pos"])
+                if "mute_audio" in cfg:
+                    self.mute_checkbox.setChecked(cfg["mute_audio"])
+            except Exception as e:
+                print(f"Error loading config.json: {e}")
+
+    def save_config(self):
+        import json
+        config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "config.json")
+        try:
+            cfg = {
+                "copies": self.copies_spin.value(),
+                "strip_metadata": self.strip_meta_checkbox.isChecked(),
+                "style": self.style_combo.currentText(),
+                "output_format": self.output_format_combo.currentText(),
+                "blur_background": self.blur_background_checkbox.isChecked(),
+                "selected_filters": [item.text() for item in self.filter_list.selectedItems()],
+                "zoom_mode": "dynamic" if self.zoom_dynamic_radio.isChecked() else "static",
+                "zoom_static": self.zoom_static_spin.value(),
+                "zoom_min": self.zoom_min_spin.value(),
+                "zoom_max": self.zoom_max_spin.value(),
+                "speed_mode": "dynamic" if self.speed_dynamic_radio.isChecked() else "static",
+                "speed_static": self.speed_static_spin.value(),
+                "speed_min": self.speed_min_spin.value(),
+                "speed_max": self.speed_max_spin.value(),
+                "overlay_path": self.overlay_path.text(),
+                "overlay_pos": self.overlay_pos_combo.currentText(),
+                "mute_audio": self.mute_checkbox.isChecked()
+            }
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"Error saving config.json: {e}")
 
     def on_output_format_changed(self, format_text):
         is_reels = (format_text == REELS_FORMAT_NAME)
@@ -441,6 +545,10 @@ class VideoUnicApp(QMainWindow):
             self.setStyleSheet("")
 
     def start_processing(self):
+        try:
+            self.main_widget.save_config()
+        except Exception as e:
+            print(f"Error auto-saving config: {e}")
         video_files = [self.main_widget.video_list_widget.item(i).data(Qt.UserRole)
                        for i in range(self.main_widget.video_list_widget.count())]
         if not video_files:
@@ -451,6 +559,7 @@ class VideoUnicApp(QMainWindow):
         if not out_dir:
             return
 
+        copies = self.main_widget.copies_spin.value()
         strip_metadata = self.main_widget.strip_meta_checkbox.isChecked()
         output_format = self.main_widget.output_format_combo.currentText()
         blur_background = (self.main_widget.blur_background_checkbox.isChecked()
@@ -492,7 +601,8 @@ class VideoUnicApp(QMainWindow):
             overlay_file=overlay_file, overlay_pos=overlay_pos,
             out_dir=out_dir, mute_audio=mute_audio,
             output_format=output_format, blur_background=blur_background,
-            strip_metadata=strip_metadata
+            strip_metadata=strip_metadata,
+            copies=copies
         )
 
         self.thread.progress.connect(self.on_prog)
@@ -562,4 +672,8 @@ class VideoUnicApp(QMainWindow):
             else:
                 event.ignore()
         else:
+            try:
+                self.main_widget.save_config()
+            except Exception:
+                pass
             event.accept()

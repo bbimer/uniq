@@ -29,6 +29,7 @@ class Worker(QThread):
             output_format: str,
             blur_background: bool,
             strip_metadata: bool,
+            copies: int = 1,
     ):
         super().__init__()
         self.files = list(files)
@@ -46,6 +47,7 @@ class Worker(QThread):
         self.output_format = output_format
         self.blur_background = blur_background
         self.strip_metadata = strip_metadata
+        self.copies = copies
         self._is_running = True
 
     def pick_zoom(self) -> int:
@@ -71,11 +73,14 @@ class Worker(QThread):
         print("Worker stop requested.")
 
     def run(self):
-        """Основной цикл обработки файлов."""
+        """Основной цикл обработки файлов с генерацией копий."""
         total_files = len(self.files)
         if total_files == 0:
             self.finished.emit()
             return
+
+        total_steps = total_files * self.copies
+        current_step = 0
 
         try:
             os.makedirs(self.out_dir, exist_ok=True)
@@ -83,50 +88,63 @@ class Worker(QThread):
             self.error.emit(f"Не удалось создать выходную папку: {self.out_dir}\nОшибка: {e}")
             return
 
-        for i, in_file_path in enumerate(self.files):
+        for in_file_path in self.files:
             if not self._is_running:
-                print("Worker stopped.")
                 break
 
             base_name = os.path.basename(in_file_path)
             name_part, _ = os.path.splitext(base_name)
-            suffix = "_reels" if self.output_format != "Оригинальный" else "_processed"
-            out_file_name = f"{name_part}{suffix}.mp4"
-            out_file_path = os.path.join(self.out_dir, out_file_name)
+            
+            for copy_idx in range(1, self.copies + 1):
+                if not self._is_running:
+                    break
 
-            if os.path.abspath(in_file_path) == os.path.abspath(out_file_path):
-                alt_out_file_name = f"{name_part}{suffix}_output.mp4"
-                out_file_path = os.path.join(self.out_dir, alt_out_file_name)
-                print(f"Warning: Output path is same as input. Saving to: {alt_out_file_name}")
+                suffix = "_reels" if self.output_format != "Оригинальный" else "_processed"
+                if self.copies > 1:
+                    out_file_name = f"{name_part}{suffix}_v{copy_idx}.mp4"
+                else:
+                    out_file_name = f"{name_part}{suffix}.mp4"
+                
+                out_file_path = os.path.join(self.out_dir, out_file_name)
 
-            self.file_processing.emit(base_name)
+                if os.path.abspath(in_file_path) == os.path.abspath(out_file_path):
+                    alt_out_file_name = f"{name_part}{suffix}_v{copy_idx}_output.mp4" if self.copies > 1 else f"{name_part}{suffix}_output.mp4"
+                    out_file_path = os.path.join(self.out_dir, alt_out_file_name)
+                    print(f"Warning: Output path is same as input. Saving to: {alt_out_file_name}")
 
-            try:
-                current_zoom = self.pick_zoom()
-                current_speed = self.pick_speed()
+                display_name = f"{base_name} ({copy_idx}/{self.copies})" if self.copies > 1 else base_name
+                self.file_processing.emit(display_name)
 
-                process_single(
-                    in_path=in_file_path,
-                    out_path=out_file_path,
-                    filters=self.filters,
-                    zoom_p=current_zoom,
-                    speed_p=current_speed,
-                    overlay_file=self.overlay_file,
-                    overlay_pos=self.overlay_pos,
-                    output_format=self.output_format,
-                    blur_background=self.blur_background,
-                    mute_audio=self.mute_audio,
-                    strip_metadata=self.strip_metadata,
-                )
-                self.progress.emit(i + 1, total_files)
+                try:
+                    current_zoom = self.pick_zoom()
+                    current_speed = self.pick_speed()
 
-            except Exception as e:
-                error_msg = f"Ошибка при обработке файла '{base_name}':\n{type(e).__name__}: {e}"
-                if isinstance(e, subprocess.CalledProcessError) and e.output:
-                    error_msg += f"\n\nFFmpeg output:\n{e.output[-500:]}"
-                print(f"Error in worker thread: {error_msg}")
-                self.error.emit(error_msg)
-                continue
+                    process_single(
+                        in_path=in_file_path,
+                        out_path=out_file_path,
+                        filters=self.filters,
+                        zoom_p=current_zoom,
+                        speed_p=current_speed,
+                        overlay_file=self.overlay_file,
+                        overlay_pos=self.overlay_pos,
+                        output_format=self.output_format,
+                        blur_background=self.blur_background,
+                        mute_audio=self.mute_audio,
+                        strip_metadata=self.strip_metadata,
+                    )
+                    current_step += 1
+                    self.progress.emit(current_step, total_steps)
+
+                except Exception as e:
+                    error_msg = f"Ошибка при обработке файла '{base_name}' (копия {copy_idx}):\n{type(e).__name__}: {e}"
+                    if isinstance(e, subprocess.CalledProcessError) and e.output:
+                        error_msg += f"\n\nFFmpeg output:\n{e.output[-500:]}"
+                    print(f"Error in worker thread: {error_msg}")
+                    self.error.emit(error_msg)
+                    # We continue to the next copy/file even if one fails
+                    current_step += 1
+                    self.progress.emit(current_step, total_steps)
+                    continue
 
         if self._is_running:
             print("Worker finished processing all files.")

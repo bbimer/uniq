@@ -32,9 +32,13 @@ def main():
     if not os.path.isdir(resources_dir):
         logging.warning(f"Папка 'resources' не найдена по пути: {resources_dir}")
 
+    import shutil
     if sys.platform.startswith('win') and not os.path.exists(ffmpeg_path_check):
-        logging.error(f"ffmpeg.exe не найден по пути: {ffmpeg_path_check}")
-        logging.error("Пожалуйста, скачайте FFmpeg и поместите его в папку 'ffmpeg/bin'.")
+        if shutil.which("ffmpeg"):
+            logging.info("FFmpeg найден в системном PATH. Локальная папка 'ffmpeg/bin' не требуется.")
+        else:
+            logging.error(f"ffmpeg.exe не найден по пути: {ffmpeg_path_check}")
+            logging.error("Пожалуйста, скачайте FFmpeg и поместите его в папку 'ffmpeg/bin' или добавьте его в системный PATH.")
 
     try:
         w = VideoUnicApp()
