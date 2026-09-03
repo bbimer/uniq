@@ -1,39 +1,29 @@
-# batch_run_ru_eng.py — 12 RU + 24 ENG Advanced Unique Videos (36 Total)
 import os
-import sys
 import time
 import random
 import subprocess
 
-if sys.platform.startswith("win"):
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
-INPUT_DIR = r"C:\Users\root\Desktop\uniq\input"
-OUTPUT_DIR = r"C:\Users\root\Desktop\uniq\output"
+INPUT_DIR = "input"
+OUTPUT_DIR = "output"
 
 TASKS = [
-    {"source": "RU.mp4", "folder": "RU", "prefix": "RU_v", "count": 12},
-    {"source": "ENG.mp4", "folder": "ENG", "prefix": "ENG_v", "count": 24},
+    {"source": "RU.mp4", "folder": "RU", "prefix": "RU_v", "count": 6},
+    {"source": "ENG.mp4", "folder": "ENG", "prefix": "ENG_v", "count": 12},
 ]
 
-# Целевой битрейт под ~26-28 МБ при 1080x1920 60fps
 BITRATE = "7000k"
-MAXRATE = "8200k"
+MAXRATE = "8500k"
 BUFSIZE = "14000k"
 AUDIO_BITRATE = "192k"
 
-def format_sec(s):
-    m = int(s // 60)
-    sec = int(s % 60)
-    return f"{m:02d}:{sec:02d}"
+def format_sec(sec: float) -> str:
+    m = int(sec // 60)
+    s = int(sec % 60)
+    return f"{m:02d}:{s:02d}"
 
 def main():
     print("=" * 66)
-    print("   GENERATING: 12 RU + 24 ENG ADVANCED UNIQUE VIDEOS (36 TOTAL)")
+    print("   NVIDIA NVENC BATCH UNIQUEIZATION (RU: 6, ENG: 12) + PITCH & AUDIO SHIFT")
     print("=" * 66)
 
     total_tasks = sum(t["count"] for t in TASKS)
@@ -44,7 +34,7 @@ def main():
     for task in TASKS:
         src_path = os.path.join(INPUT_DIR, task["source"])
         if not os.path.isfile(src_path):
-            print(f"[ERROR] Source file not found: {src_path}")
+            print(f"[!] Source missing: {src_path}")
             continue
 
         target_dir = os.path.join(OUTPUT_DIR, task["folder"])
@@ -57,7 +47,7 @@ def main():
             out_filename = f"{task['prefix']}{idx:02d}.mp4"
             out_path = os.path.join(target_dir, out_filename)
 
-            # 1. Сдвиг старта (рандомный срез 0.12..0.35 сек) — полностью ломает Frame 0 / Hook
+            # 1. Сдвиг старта (рандомный срез 0.12..0.35 сек) — ломает Frame 0 / Hook
             start_offset = round(random.uniform(0.12, 0.35), 3)
 
             # 2. Пространственный сдвиг кадра (зум + асимметричный кроп)
@@ -72,7 +62,8 @@ def main():
             gamma = f"{random.uniform(0.97, 1.03):.4f}"
             hue = f"{random.uniform(-0.6, 0.6):.2f}"
 
-            # 4. Аудио-хэш: темп + эквалайзер спектра (бас/высокие)
+            # 4. Аудио-хэш: темп + сдвиг тона голоса (pitch) + эквалайзер спектра
+            pitch = f"{random.uniform(0.982, 1.018):.4f}"
             speed = f"{random.uniform(0.985, 1.015):.4f}"
             bass_g = f"{random.uniform(-1.5, 1.5):.2f}"
             treble_g = f"{random.uniform(-1.5, 1.5):.2f}"
@@ -87,8 +78,8 @@ def main():
                 f"format=yuv420p"
             )
 
-            # Фильтр аудио: сдвиг спектра частот + micro-tempo
-            af = f"bass=g={bass_g}:f=150,treble=g={treble_g}:f=3000,atempo={speed}"
+            # Фильтр аудио: rubberband pitch shift + EQ + micro-tempo
+            af = f"rubberband=pitch={pitch},bass=g={bass_g}:f=150,treble=g={treble_g}:f=3000,atempo={speed}"
 
             cmd = [
                 "ffmpeg", "-y", "-hide_banner", "-loglevel", "warning",
