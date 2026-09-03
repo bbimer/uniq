@@ -1,4 +1,4 @@
-# batch_run_ru_eng.py — 6 RU + 12 ENG Unique Videos
+# batch_run_ru_eng.py — 12 RU + 24 ENG Advanced Unique Videos (36 Total)
 import os
 import sys
 import time
@@ -16,11 +16,11 @@ INPUT_DIR = r"C:\Users\root\Desktop\uniq\input"
 OUTPUT_DIR = r"C:\Users\root\Desktop\uniq\output"
 
 TASKS = [
-    {"source": "RU.mp4", "folder": "RU", "prefix": "RU_v", "count": 6},
-    {"source": "ENG.mp4", "folder": "ENG", "prefix": "ENG_v", "count": 12},
+    {"source": "RU.mp4", "folder": "RU", "prefix": "RU_v", "count": 12},
+    {"source": "ENG.mp4", "folder": "ENG", "prefix": "ENG_v", "count": 24},
 ]
 
-# Настройки качества под ~26-28 МБ при 1080x1920 60fps
+# Целевой битрейт под ~26-28 МБ при 1080x1920 60fps
 BITRATE = "7000k"
 MAXRATE = "8200k"
 BUFSIZE = "14000k"
@@ -33,7 +33,7 @@ def format_sec(s):
 
 def main():
     print("=" * 66)
-    print("   GENERATING: 6 RU + 12 ENG UNIQUE VIDEOS (18 TOTAL)")
+    print("   GENERATING: 12 RU + 24 ENG ADVANCED UNIQUE VIDEOS (36 TOTAL)")
     print("=" * 66)
 
     total_tasks = sum(t["count"] for t in TASKS)
@@ -57,18 +57,42 @@ def main():
             out_filename = f"{task['prefix']}{idx:02d}.mp4"
             out_path = os.path.join(target_dir, out_filename)
 
+            # 1. Сдвиг старта (рандомный срез 0.12..0.35 сек) — полностью ломает Frame 0 / Hook
+            start_offset = round(random.uniform(0.12, 0.35), 3)
+
+            # 2. Пространственный сдвиг кадра (зум + асимметричный кроп)
+            zoom = round(random.uniform(1.025, 1.045), 4)
+            shift_x = random.randint(-10, 10)
+            shift_y = random.randint(-15, 15)
+
+            # 3. Цветовой спектр и гамма
             br = f"{random.uniform(-0.015, 0.015):.4f}"
             ct = f"{random.uniform(0.98, 1.02):.4f}"
             sat = f"{random.uniform(0.98, 1.02):.4f}"
-            hue = f"{random.uniform(-0.5, 0.5):.2f}"
-            zoom = f"{random.uniform(1.01, 1.03):.4f}"
-            speed = f"{random.uniform(0.99, 1.01):.4f}"
+            gamma = f"{random.uniform(0.97, 1.03):.4f}"
+            hue = f"{random.uniform(-0.6, 0.6):.2f}"
 
-            vf = f"eq=brightness={br}:contrast={ct}:saturation={sat},hue=h={hue},scale=iw*{zoom}:ih*{zoom}:flags=bicubic,crop=1080:1920:(in_w-1080)/2:(in_h-1920)/2,format=yuv420p"
-            af = f"atempo={speed}"
+            # 4. Аудио-хэш: темп + эквалайзер спектра (бас/высокие)
+            speed = f"{random.uniform(0.985, 1.015):.4f}"
+            bass_g = f"{random.uniform(-1.5, 1.5):.2f}"
+            treble_g = f"{random.uniform(-1.5, 1.5):.2f}"
+
+            # Фильтр видео: eq + hue + micro-grain noise + scale + asymmetric crop
+            vf = (
+                f"eq=brightness={br}:contrast={ct}:saturation={sat}:gamma={gamma},"
+                f"hue=h={hue},"
+                f"noise=c0s=2:c0f=u:allf=t,"
+                f"scale=iw*{zoom}:ih*{zoom}:flags=bicubic,"
+                f"crop=1080:1920:(in_w-1080)/2+{shift_x}:(in_h-1920)/2+{shift_y},"
+                f"format=yuv420p"
+            )
+
+            # Фильтр аудио: сдвиг спектра частот + micro-tempo
+            af = f"bass=g={bass_g}:f=150,treble=g={treble_g}:f=3000,atempo={speed}"
 
             cmd = [
                 "ffmpeg", "-y", "-hide_banner", "-loglevel", "warning",
+                "-ss", str(start_offset),
                 "-i", src_path,
                 "-vf", vf,
                 "-af", af,
