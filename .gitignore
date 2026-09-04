@@ -8,3 +8,6 @@ input/*
 !input/.gitkeep
 output/*
 !output/.gitkeep
+
+# Private sensitive manuals & architecture
+INSTAGRAM_TRAFFIC_ARCHITECTURE.md
